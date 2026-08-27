@@ -32,12 +32,16 @@ export function Ctrl({
   );
 }
 
+import { ExportPanel, type ExportHandlers } from "@/components/ExportPanel";
+
 export function PanelShell({
   onReset,
   children,
+  export: exportHandlers,
 }: {
   onReset: () => void;
   children: React.ReactNode;
+  export?: ExportHandlers;
 }) {
   return (
     <aside className="rounded-xl border border-border bg-card/40 p-5">
@@ -53,6 +57,7 @@ export function PanelShell({
         </button>
       </div>
       <div className="mt-5 space-y-4">{children}</div>
+      {exportHandlers ? <ExportPanel export={exportHandlers} /> : null}
     </aside>
   );
 }

@@ -1,4 +1,5 @@
 import { ArrowUpRight, Check, Lock } from "lucide-react";
+import { RepoviveLogoIso } from "@/components/RepoviveLogoIso";
 
 type Item = {
   id: string;
@@ -114,42 +115,209 @@ function CubeThumb() {
 }
 
 function TowerThumb() {
+  const layers = 5;
+  const s = 34;
+  const step = 7;
+  const lift = 10;
+  const P = (u: number, v: number, z: number) =>
+    [0.866 * (u - v), 0.5 * (u + v) - z] as const;
+  const slab = (z0: number) => {
+    const z1 = z0 + 4;
+    const pts = [
+      P(0, 0, z1),
+      P(s, 0, z1),
+      P(s, 0, z0),
+      P(s, s, z0),
+      P(0, s, z0),
+      P(0, s, z1),
+    ];
+    const top = [P(0, 0, z1), P(s, 0, z1), P(s, s, z1), P(0, s, z1)];
+    const d = (a: readonly (readonly [number, number])[]) =>
+      `M ${a.map((q) => `${q[0].toFixed(1)} ${q[1].toFixed(1)}`).join(" L ")} Z`;
+    return { pts, top, d, z0, z1 };
+  };
+  const stack = Array.from({ length: layers }, (_, i) => {
+    const base = i * step;
+    return slab(i === layers - 1 ? base + lift : base);
+  });
+  const top = stack[layers - 1]!;
+  const below = stack[layers - 2]!;
   return (
-    <svg viewBox="-70 -70 150 130" className="h-full w-full text-foreground/40">
-      <g {...stroke}>
-        {Array.from({ length: 8 }, (_, i) => {
-          const z = i * 9;
-          const s = 44 - i * 3;
-          const p = [iso(0, 0, z), iso(s, 0, z), iso(s, s, z), iso(0, s, z)];
-          return (
-            <path
-              key={i}
-              d={`M ${p.map((q) => `${q[0].toFixed(1)} ${q[1].toFixed(1)}`).join(" L ")} Z`}
-            />
-          );
-        })}
-      </g>
+    <svg viewBox="-45 -58 92 100" className="h-full w-full text-foreground/70">
+      {[
+        [0, 0],
+        [s, 0],
+        [s, s],
+      ].map(([u, v], i) => {
+        const from = P(u, v, below.z1);
+        const to = P(u, v, top.z0);
+        return (
+          <line
+            key={`g-${i}`}
+            x1={from[0]}
+            y1={from[1]}
+            x2={to[0]}
+            y2={to[1]}
+            stroke="currentColor"
+            strokeWidth={0.6}
+            strokeOpacity={0.35}
+            strokeDasharray="2 3"
+          />
+        );
+      })}
+      {stack.map((sl, i) => (
+        <g key={i}>
+          <path d={sl.d(sl.pts)} className="fill-background" />
+          <path
+            d={sl.d(sl.top)}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={0.6}
+            strokeLinejoin="round"
+          />
+          <path
+            d={sl.d(sl.pts)}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.4}
+            strokeLinejoin="round"
+          />
+        </g>
+      ))}
+      <RepoviveLogoIso
+        iso={P}
+        S={s}
+        z1={top.z1}
+        scale={0.42}
+        stroke={0.6}
+      />
     </svg>
   );
 }
 
 function RingThumb() {
+  const P = (u: number, v: number, z: number) =>
+    [0.866 * (u - v), 0.5 * (u + v) - z] as const;
+  const n = 5;
+  const pathOf = (pts: readonly (readonly [number, number])[]) =>
+    `M ${pts.map((q) => `${q[0].toFixed(1)} ${q[1].toFixed(1)}`).join(" L ")}`;
   return (
-    <svg viewBox="-70 -60 150 110" className="h-full w-full text-foreground/40">
-      <g {...stroke}>
-        {Array.from({ length: 5 }, (_, r) => {
-          const rad = 12 + r * 9;
-          const pts = Array.from({ length: 24 }, (_, k) => {
-            const a = (k / 24) * Math.PI * 2;
-            return iso(Math.cos(a) * rad, Math.sin(a) * rad, r * 5);
-          });
-          return (
+    <svg viewBox="-55 -48 110 96" className="h-full w-full text-foreground/70">
+      {Array.from({ length: 4 }, (_, m) => {
+        const a = (m / 4) * Math.PI * 2;
+        const pts = Array.from({ length: n }, (_, i) => {
+          const t = i / (n - 1);
+          const r = 34 - t * 24;
+          const z = 28 * (1 - t);
+          return P(Math.cos(a) * r, Math.sin(a) * r, z);
+        });
+        return (
+          <path
+            key={`m-${m}`}
+            d={pathOf(pts)}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={0.55}
+            strokeOpacity={0.35}
+          />
+        );
+      })}
+      {Array.from({ length: n }, (_, i) => {
+        const t = i / (n - 1);
+        const r = 34 - t * 24;
+        const z = 28 * (1 - t);
+        const pts = Array.from({ length: 28 }, (_, k) => {
+          const a = (k / 28) * Math.PI * 2;
+          return P(Math.cos(a) * r, Math.sin(a) * r, z);
+        });
+        return (
+          <path
+            key={i}
+            d={`${pathOf(pts)} Z`}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={i === 0 ? 1.3 : 0.7}
+            strokeOpacity={0.85 - t * 0.25}
+          />
+        );
+      })}
+    </svg>
+  );
+}
+
+function BurrThumb() {
+  const P = (u: number, v: number, z: number) =>
+    [0.866 * (u - v), 0.5 * (u + v) - z] as const;
+  const s = 10;
+  const h = 24;
+  const boxes = [
+    { u0: -h, u1: h, v0: -s, v1: 0, z0: -s, z1: 0 },
+    { u0: -h, u1: h, v0: 0, v1: s, z0: 0, z1: s },
+    { u0: -s, u1: 0, v0: -h, v1: h, z0: 0, z1: s },
+    { u0: 0, u1: s, v0: -h, v1: h, z0: -s, z1: 0 },
+    { u0: 0, u1: s, v0: -s, v1: 0, z0: -h, z1: h },
+    { u0: -s, u1: 0, v0: 0, v1: s, z0: -h, z1: h },
+  ];
+  const hex = (b: (typeof boxes)[number]) => {
+    const tA = P(b.u0, b.v0, b.z1);
+    const tB = P(b.u1, b.v0, b.z1);
+    const bB = P(b.u1, b.v0, b.z0);
+    const bC = P(b.u1, b.v1, b.z0);
+    const bD = P(b.u0, b.v1, b.z0);
+    const tD = P(b.u0, b.v1, b.z1);
+    const pts = [tA, tB, bB, bC, bD, tD];
+    return `M ${pts.map((q) => `${q[0].toFixed(1)} ${q[1].toFixed(1)}`).join(" L ")} Z`;
+  };
+  const depth = (b: (typeof boxes)[number]) =>
+    (b.u0 + b.u1) / 2 + (b.v0 + b.v1) / 2;
+  return (
+    <svg viewBox="-48 -50 96 96" className="h-full w-full text-foreground/70">
+      {[...boxes]
+        .sort((a, b) => depth(a) - depth(b))
+        .map((b, i) => (
+          <g key={i}>
+            <path d={hex(b)} className="fill-background" />
             <path
-              key={r}
-              d={`M ${pts.map((q) => `${q[0].toFixed(1)} ${q[1].toFixed(1)}`).join(" L ")} Z`}
+              d={hex(b)}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.35}
+              strokeLinejoin="round"
             />
-          );
-        })}
+          </g>
+        ))}
+    </svg>
+  );
+}
+
+function ComputerThumb() {
+  const P = (u: number, v: number, z: number) =>
+    [0.866 * (u - v), 0.5 * (u + v) - z] as const;
+  const hex = (
+    u0: number,
+    v0: number,
+    z0: number,
+    u1: number,
+    v1: number,
+    z1: number,
+  ) => {
+    const pts = [
+      P(u0, v0, z1),
+      P(u1, v0, z1),
+      P(u1, v0, z0),
+      P(u1, v1, z0),
+      P(u0, v1, z0),
+      P(u0, v1, z1),
+    ];
+    return `M ${pts.map((q) => `${q[0].toFixed(1)} ${q[1].toFixed(1)}`).join(" L ")} Z`;
+  };
+  return (
+    <svg viewBox="-42 -48 92 92" className="h-full w-full text-foreground/70">
+      <g fill="none" stroke="currentColor" strokeLinejoin="round">
+        <path d={hex(-18, -8, 0, 18, 12, 8)} className="fill-background" strokeWidth={1.2} />
+        <path d={hex(-10, -6, 8, 10, 8, 28)} className="fill-background" strokeWidth={1.2} />
+        <path d={hex(-14, 14, 0, 12, 24, 3)} className="fill-background" strokeWidth={1.1} />
+        <path d={hex(16, 14, 0, 24, 22, 4)} className="fill-background" strokeWidth={1.1} />
       </g>
     </svg>
   );
@@ -177,17 +345,37 @@ const ITEMS: Item[] = [
     id: "stacked-tower",
     index: "03",
     title: "Stacked tower",
-    blurb: "Tapered layers that separate and rotate as you scrub vertically.",
-    status: "soon",
+    blurb:
+      "Equal slabs in a vertical stack — scrub up and down to lift the top layer.",
+    status: "live",
     thumb: <TowerThumb />,
   },
   {
     id: "ripple-rings",
     index: "04",
     title: "Ripple rings",
-    blurb: "Concentric contours that pulse outward from the pointer.",
-    status: "soon",
+    blurb:
+      "Concentric contours that drop into a funnel on hover, with curves drifting down the walls.",
+    status: "live",
     thumb: <RingThumb />,
+  },
+  {
+    id: "burr-puzzle",
+    index: "05",
+    title: "Burr puzzle",
+    blurb:
+      "Six beams locked on three axes — hover a piece to slide it out of the weave.",
+    status: "live",
+    thumb: <BurrThumb />,
+  },
+  {
+    id: "retro-computer",
+    index: "06",
+    title: "Retro computer",
+    blurb:
+      "CRT, case, keyboard and mouse — hover a piece to lift it off the desk.",
+    status: "live",
+    thumb: <ComputerThumb />,
   },
 ];
 
@@ -215,7 +403,7 @@ export function DiagramGallery({
         </p>
       </header>
 
-      <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {ITEMS.map((item) => {
           const live = item.status === "live";
           const selected = live && item.id === selectedId;

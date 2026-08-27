@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, Download } from "lucide-react";
-import { Ctrl } from "@/components/AttrPanel";
+import { Ctrl, PanelShell } from "@/components/AttrPanel";
 import {
-  buildInteractiveHtml,
-  configToJson,
-  downloadFile,
-} from "@/lib/iso-export";
+  buildIsoInteractiveHtml,
+  isoConfigToJson,
+} from "@/lib/diagram-export";
 
 type Mode = "flat" | "ridge" | "wave" | "fan";
 
@@ -104,7 +102,6 @@ function profile(
 export function IsoStack() {
   const [mode, setMode] = useState<Mode>("flat");
   const [cfg, setCfg] = useState<IsoConfig>(DEFAULTS);
-  const [copied, setCopied] = useState(false);
 
   const [heights, setHeights] = useState<number[]>(() =>
     Array(DEFAULTS.count).fill(8),
@@ -203,6 +200,15 @@ export function IsoStack() {
     (v: number) =>
       setCfg((c) => ({ ...c, [k]: v }));
 
+  const exportHandlers = useMemo(
+    () => ({
+      filename: "plate-array.html",
+      getJson: () => isoConfigToJson(cfg, mode),
+      getHtml: () => buildIsoInteractiveHtml(cfg, mode),
+    }),
+    [cfg, mode],
+  );
+
   return (
     <div className="grid w-full gap-10 lg:grid-cols-[1fr_260px]">
       <div>
@@ -271,134 +277,80 @@ export function IsoStack() {
         </div>
       </div>
 
-      <aside className="rounded-xl border border-border bg-card/40 p-5">
-        <div className="flex items-center justify-between">
-          <h2 className="text-[0.65rem] uppercase tracking-[0.3em] text-muted-foreground">
-            Attributes
-          </h2>
-          <button
-            onClick={() => setCfg(DEFAULTS)}
-            className="text-[0.65rem] uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Reset
-          </button>
-        </div>
-
-        <div className="mt-5 space-y-4">
-          <Ctrl
-            label="Line weight"
-            value={cfg.stroke}
-            min={0.2}
-            max={4}
-            step={0.1}
-            onChange={set("stroke")}
-          />
-          <Ctrl
-            label="Corner radius"
-            value={cfg.radius}
-            min={0}
-            max={20}
-            step={0.5}
-            onChange={set("radius")}
-          />
-          <Ctrl
-            label="Plates"
-            value={cfg.count}
-            min={3}
-            max={40}
-            step={1}
-            onChange={set("count")}
-          />
-          <Ctrl
-            label="Spacing"
-            value={cfg.pitch}
-            min={6}
-            max={40}
-            step={0.5}
-            onChange={set("pitch")}
-          />
-          <Ctrl
-            label="Plate depth"
-            value={cfg.thickness}
-            min={2}
-            max={30}
-            step={0.5}
-            onChange={set("thickness")}
-          />
-          <Ctrl
-            label="Plate width"
-            value={cfg.length}
-            min={60}
-            max={340}
-            step={2}
-            onChange={set("length")}
-          />
-          <Ctrl
-            label="Max height"
-            value={cfg.maxHeight}
-            min={40}
-            max={320}
-            step={2}
-            onChange={set("maxHeight")}
-          />
-          <Ctrl
-            label="Face fill"
-            value={cfg.fill}
-            min={0}
-            max={1}
-            step={0.01}
-            onChange={set("fill")}
-          />
-          <Ctrl
-            label="Depth fade"
-            value={cfg.dim}
-            min={0}
-            max={0.9}
-            step={0.01}
-            onChange={set("dim")}
-          />
-        </div>
-
-        <div className="mt-6 border-t border-border pt-5">
-          <h2 className="text-[0.65rem] uppercase tracking-[0.3em] text-muted-foreground">
-            Export
-          </h2>
-          <div className="mt-3 space-y-2">
-            <button
-              onClick={async () => {
-                await navigator.clipboard.writeText(configToJson(cfg, mode));
-                setCopied(true);
-                window.setTimeout(() => setCopied(false), 1600);
-              }}
-              className="flex w-full items-center gap-2 rounded-md border border-border px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
-            >
-              {copied ? (
-                <Check className="size-3.5" />
-              ) : (
-                <Copy className="size-3.5" />
-              )}
-              {copied ? "Copied config" : "Copy config JSON"}
-            </button>
-            <button
-              onClick={() =>
-                downloadFile(
-                  "iso-stack.html",
-                  "text/html",
-                  buildInteractiveHtml(cfg, mode),
-                )
-              }
-              className="flex w-full items-center gap-2 rounded-md border border-border px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
-            >
-              <Download className="size-3.5" />
-              Download interactive HTML
-            </button>
-          </div>
-          <p className="mt-3 text-[0.65rem] leading-relaxed text-muted-foreground/70">
-            The HTML file is self-contained — open it directly or embed it in an
-            iframe.
-          </p>
-        </div>
-      </aside>
+      <PanelShell onReset={() => setCfg(DEFAULTS)} export={exportHandlers}>
+        <Ctrl
+          label="Line weight"
+          value={cfg.stroke}
+          min={0.2}
+          max={4}
+          step={0.1}
+          onChange={set("stroke")}
+        />
+        <Ctrl
+          label="Corner radius"
+          value={cfg.radius}
+          min={0}
+          max={20}
+          step={0.5}
+          onChange={set("radius")}
+        />
+        <Ctrl
+          label="Plates"
+          value={cfg.count}
+          min={3}
+          max={40}
+          step={1}
+          onChange={set("count")}
+        />
+        <Ctrl
+          label="Spacing"
+          value={cfg.pitch}
+          min={6}
+          max={40}
+          step={0.5}
+          onChange={set("pitch")}
+        />
+        <Ctrl
+          label="Plate depth"
+          value={cfg.thickness}
+          min={2}
+          max={30}
+          step={0.5}
+          onChange={set("thickness")}
+        />
+        <Ctrl
+          label="Plate width"
+          value={cfg.length}
+          min={60}
+          max={340}
+          step={2}
+          onChange={set("length")}
+        />
+        <Ctrl
+          label="Max height"
+          value={cfg.maxHeight}
+          min={40}
+          max={320}
+          step={2}
+          onChange={set("maxHeight")}
+        />
+        <Ctrl
+          label="Face fill"
+          value={cfg.fill}
+          min={0}
+          max={1}
+          step={0.01}
+          onChange={set("fill")}
+        />
+        <Ctrl
+          label="Depth fade"
+          value={cfg.dim}
+          min={0}
+          max={0.9}
+          step={0.01}
+          onChange={set("dim")}
+        />
+      </PanelShell>
     </div>
   );
 }

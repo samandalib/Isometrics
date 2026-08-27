@@ -1,5 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Ctrl, PanelShell } from "@/components/AttrPanel";
+import {
+  buildCubeInteractiveHtml,
+  cubeConfigToJson,
+} from "@/lib/diagram-export";
 
 /** Isometric projection */
 function iso(u: number, v: number, z: number): [number, number] {
@@ -145,6 +149,15 @@ export function CubeCluster() {
     (v: number) =>
       setCfg((c) => ({ ...c, [k]: v }));
 
+  const exportHandlers = useMemo(
+    () => ({
+      filename: "cube-cluster.html",
+      getJson: () => cubeConfigToJson(cfg),
+      getHtml: () => buildCubeInteractiveHtml(cfg),
+    }),
+    [cfg],
+  );
+
   return (
     <div className="grid w-full gap-10 lg:grid-cols-[1fr_260px]">
       <div className="relative w-full overflow-hidden rounded-2xl border border-border bg-card/30">
@@ -211,7 +224,7 @@ export function CubeCluster() {
         </svg>
       </div>
 
-      <PanelShell onReset={() => setCfg(DEFAULTS)}>
+      <PanelShell onReset={() => setCfg(DEFAULTS)} export={exportHandlers}>
         <Ctrl
           label="Cube size"
           value={cfg.size}
