@@ -2,6 +2,7 @@ import type { IsoConfig } from "@/components/IsoStack";
 import type { RippleConfig } from "@/components/RippleRings";
 import type { BurrConfig } from "@/components/BurrPuzzle";
 import type { ComputerConfig } from "@/components/RetroComputer";
+import type { CoinConfig } from "@/components/CoinStacks";
 import { repoviveLogoGeometryScript } from "@/lib/repovive-logo-iso";
 
 export type IsoMode = "flat" | "ridge" | "wave" | "fan";
@@ -970,6 +971,197 @@ export function buildComputerInteractiveHtml(cfg: ComputerConfig) {
         lift[id] = cur + (target - cur) * 0.14;
       });
       render();
+      requestAnimationFrame(tick);
+    }
+    svg.addEventListener("pointerleave", function () { hover = null; });
+    requestAnimationFrame(tick);
+  })();
+  </script>
+</body>
+</html>
+`;
+}
+
+export function coinConfigToJson(cfg: CoinConfig) {
+  return JSON.stringify({ diagram: "coin-stacks", ...cfg }, null, 2);
+}
+
+export function buildCoinInteractiveHtml(cfg: CoinConfig) {
+  const theme = readTheme();
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Isometric Coin Stacks</title>
+  <style>
+    :root { color-scheme: dark light; }
+    html,body { margin:0; height:100%; background:${theme.bg}; color:${theme.fg}; }
+    body { display:grid; place-items:center; }
+    svg { width:min(100%, 640px); height:min(100vh, 520px); touch-action:none; user-select:none; }
+  </style>
+</head>
+<body>
+  <svg id="coins" viewBox="-150 -170 300 330"><g id="root"></g></svg>
+  <script>
+  (function () {
+    var CFG = ${JSON.stringify(cfg)};
+    var T = ${JSON.stringify(theme)};
+    var NS = "http://www.w3.org/2000/svg";
+    var svg = document.getElementById("coins"), root = document.getElementById("root");
+    var STACKS = [{id:"back",u:-26,v:-20},{id:"right",u:30,v:6},{id:"front",u:-16,v:30}];
+    var hover = null, spread = {}, air = CFG.floating ? 1 : 0;
+    STACKS.forEach(function (s) { spread[s.id] = 0; });
+
+    function iso(u, v, z) { return [0.866 * (u - v), 0.5 * (u + v) - z]; }
+    function closePath(pts) {
+      return "M " + pts.map(function (p) { return p[0].toFixed(2) + " " + p[1].toFixed(2); }).join(" L ") + " Z";
+    }
+    function ellipse(cx, cy, r, z) {
+      var pts = [];
+      for (var i = 0; i < 48; i++) {
+        var a = (i / 48) * Math.PI * 2;
+        pts.push(iso(cx + Math.cos(a) * r, cy + Math.sin(a) * r, z));
+      }
+      return pts;
+    }
+    function ellipseArc(cx, cy, r, z, a0, a1, segs) {
+      var pts = [];
+      for (var i = 0; i <= segs; i++) {
+        var a = a0 + (a1 - a0) * i / segs;
+        pts.push(iso(cx + Math.cos(a) * r, cy + Math.sin(a) * r, z));
+      }
+      return pts;
+    }
+    var WALL_A0 = -Math.PI / 4, WALL_A1 = 3 * Math.PI / 4;
+    function wallPath(cx, cy, r, z0, z1) {
+      var bot = ellipseArc(cx, cy, r, z0, WALL_A0, WALL_A1, 22);
+      var top = ellipseArc(cx, cy, r, z1, WALL_A0, WALL_A1, 22);
+      return closePath(bot.concat(top.reverse()));
+    }
+    function stackOutline(cx, cy, r, zBot, zTop) {
+      var bot = ellipseArc(cx, cy, r, zBot, WALL_A0, WALL_A1, 24);
+      var topBack = ellipseArc(cx, cy, r, zTop, WALL_A1, WALL_A0 + Math.PI * 2, 24);
+      return closePath(bot.concat(topBack));
+    }
+    function vMark(cx, cy, z, scale, rot) {
+      var c = Math.cos(rot), s = Math.sin(rot);
+      function at(lx, ly) {
+        var rx = lx * c - ly * s, ry = lx * s + ly * c;
+        return iso(cx + rx + ry, cy - rx + ry, z);
+      }
+      var left = at(-0.38 * scale, -0.4 * scale), mid = at(0, 0.46 * scale), right = at(0.38 * scale, -0.4 * scale);
+      return "M " + left[0].toFixed(2) + " " + left[1].toFixed(2) + " L " + mid[0].toFixed(2) + " " + mid[1].toFixed(2) + " L " + right[0].toFixed(2) + " " + right[1].toFixed(2);
+    }
+    function coinSpin(id, i) {
+      var seed = id === "back" ? 0.35 : id === "right" ? 2.05 : 3.9;
+      return seed + i * 1.17;
+    }
+    function count(id) {
+      if (id === "back") return Math.max(1, Math.round(CFG.backCount));
+      if (id === "right") return Math.max(1, Math.round(CFG.rightCount));
+      return Math.max(1, Math.round(CFG.frontCount));
+    }
+    function mix(a, b, t) { return a + (b - a) * t; }
+    function floatHome(id, i, st) {
+      var s = coinSpin(id, i);
+      return { u: st.u + Math.cos(s * 2.3) * 34, v: st.v + Math.sin(s * 1.71) * 30, z: 10 + ((s * 7) % 1) * 38 };
+    }
+    function floatPose(id, i, st, t) {
+      var s = coinSpin(id, i), home = floatHome(id, i, st);
+      return {
+        u: home.u + Math.sin(t * 0.0011 + s) * 7,
+        v: home.v + Math.cos(t * 0.00083 + s * 1.4) * 6,
+        z: home.z + Math.sin(t * 0.0014 + s * 0.7) * 5.5,
+        rot: s + t * 0.00022 + Math.sin(t * 0.0007 + s) * 0.35
+      };
+    }
+    function path(d, fill, fo, stroke, so, sw, cap) {
+      var p = document.createElementNS(NS, "path");
+      p.setAttribute("d", d); p.setAttribute("fill", fill);
+      if (fo != null) p.setAttribute("fill-opacity", String(fo));
+      p.setAttribute("stroke", stroke);
+      if (so != null) p.setAttribute("stroke-opacity", String(so));
+      if (sw != null) p.setAttribute("stroke-width", String(sw));
+      p.setAttribute("stroke-linejoin", "round");
+      if (cap) p.setAttribute("stroke-linecap", "round");
+      return p;
+    }
+    function appendCoin(g, c, active, showOuter) {
+      var innerR = Math.max(4, CFG.radius - CFG.rim);
+      var wall = wallPath(c.u, c.v, CFG.radius, c.z0, c.z1);
+      var top = closePath(ellipse(c.u, c.v, CFG.radius, c.z1));
+      var rim = closePath(ellipse(c.u, c.v, innerR, c.z1));
+      var vee = vMark(c.u, c.v, c.z1, CFG.radius * CFG.vScale, c.rot);
+      g.appendChild(path(wall, T.bg, null, "none", null, null));
+      g.appendChild(path(wall, T.a, CFG.fill, T.fg, 0.4, CFG.innerStroke));
+      g.appendChild(path(top, T.bg, null, "none", null, null));
+      g.appendChild(path(top, T.c, CFG.fill, T.fg, 0.5, CFG.innerStroke));
+      g.appendChild(path(rim, "none", null, T.fg, 0.45, CFG.innerStroke));
+      g.appendChild(path(vee, "none", null, T.fg, active ? 0.95 : 0.7, CFG.innerStroke * 2.4, true));
+      if (showOuter) {
+        g.appendChild(path(stackOutline(c.u, c.v, CFG.radius, c.z0, c.z1), "none", null, T.fg, active ? 0.95 : 0.8, CFG.outerStroke));
+      }
+    }
+    function render(t) {
+      root.textContent = "";
+      var coins = [];
+      STACKS.forEach(function (st) {
+        var n = count(st.id), pitch = CFG.thickness + (spread[st.id] || 0);
+        for (var i = 0; i < n; i++) {
+          var airPose = floatPose(st.id, i, st, t);
+          var u = mix(st.u, airPose.u, air);
+          var v = mix(st.v, airPose.v, air);
+          var z0 = mix(i * pitch, airPose.z, air);
+          var z1 = z0 + CFG.thickness;
+          var rot = mix(coinSpin(st.id, i), airPose.rot, air);
+          coins.push({ st: st, i: i, u: u, v: v, z0: z0, z1: z1, rot: rot, depth: u + v + 0.2 * z0 });
+        }
+      });
+      coins.sort(function (a, b) { return a.depth - b.depth; });
+      if (air < 0.5) {
+        STACKS.slice().sort(function (a, b) { return a.u + a.v - (b.u + b.v); }).forEach(function (st) {
+          var group = coins.filter(function (c) { return c.st.id === st.id; });
+          var zBot = Infinity, zTop = -Infinity;
+          group.forEach(function (c) {
+            if (c.z0 < zBot) zBot = c.z0;
+            if (c.z1 > zTop) zTop = c.z1;
+          });
+          var g = document.createElementNS(NS, "g");
+          g.style.cursor = "pointer";
+          (function (id) {
+            g.addEventListener("pointerenter", function () { hover = id; });
+          })(st.id);
+          var active = hover === st.id;
+          group.forEach(function (c) { appendCoin(g, c, active, false); });
+          var topCoin = group[0];
+          group.forEach(function (c) { if (c.z1 >= topCoin.z1) topCoin = c; });
+          g.appendChild(path(closePath(ellipse(topCoin.u, topCoin.v, CFG.radius, topCoin.z1)), "none", null, T.fg, active ? 0.95 : 0.8, CFG.outerStroke));
+          g.appendChild(path(stackOutline(st.u, st.v, CFG.radius, zBot, zTop), "none", null, T.fg, active ? 0.95 : 0.8, CFG.outerStroke));
+          root.appendChild(g);
+        });
+      } else {
+        coins.forEach(function (c) {
+          var g = document.createElementNS(NS, "g");
+          g.style.cursor = "pointer";
+          (function (id) {
+            g.addEventListener("pointerenter", function () { hover = id; });
+          })(c.st.id);
+          appendCoin(g, c, hover === c.st.id, true);
+          root.appendChild(g);
+        });
+      }
+    }
+    function tick() {
+      var t = Date.now();
+      var ambient = 1.2 + 0.8 * Math.sin(t / 2400);
+      var airTarget = CFG.floating ? 1 : 0;
+      air = air + (airTarget - air) * 0.08;
+      STACKS.forEach(function (s) {
+        var target = hover === s.id ? CFG.gap : ambient;
+        spread[s.id] = (spread[s.id] || 0) + (target - (spread[s.id] || 0)) * 0.14;
+      });
+      render(t);
       requestAnimationFrame(tick);
     }
     svg.addEventListener("pointerleave", function () { hover = null; });

@@ -1,11 +1,13 @@
 export {
   buildBurrInteractiveHtml,
+  buildCoinInteractiveHtml,
   buildComputerInteractiveHtml,
   buildInteractiveHtml,
   buildIsoInteractiveHtml,
   buildRippleInteractiveHtml,
   buildTowerInteractiveHtml,
   burrConfigToJson,
+  coinConfigToJson,
   computerConfigToJson,
   configToJson,
   cubeConfigToJson,

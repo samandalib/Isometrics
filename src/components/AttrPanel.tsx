@@ -61,3 +61,30 @@ export function PanelShell({
     </aside>
   );
 }
+
+export function Toggle({
+  label,
+  on,
+  onChange,
+}: {
+  label: string;
+  on: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <button
+        type="button"
+        onClick={() => onChange(!on)}
+        className={`rounded-full border px-3 py-1 text-[0.65rem] uppercase tracking-[0.18em] transition-colors ${
+          on
+            ? "border-foreground/60 bg-foreground/10 text-foreground"
+            : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+        }`}
+      >
+        {on ? "On" : "Off"}
+      </button>
+    </div>
+  );
+}

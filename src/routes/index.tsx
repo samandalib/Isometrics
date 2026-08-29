@@ -7,6 +7,7 @@ import { StackedTower } from "@/components/StackedTower";
 import { RippleRings } from "@/components/RippleRings";
 import { BurrPuzzle } from "@/components/BurrPuzzle";
 import { RetroComputer } from "@/components/RetroComputer";
+import { CoinStacks } from "@/components/CoinStacks";
 
 const DIAGRAMS: Record<string, React.ComponentType> = {
   "plate-array": IsoStack,
@@ -15,6 +16,7 @@ const DIAGRAMS: Record<string, React.ComponentType> = {
   "ripple-rings": RippleRings,
   "burr-puzzle": BurrPuzzle,
   "retro-computer": RetroComputer,
+  "coin-stacks": CoinStacks,
 };
 
 export const Route = createFileRoute("/")({

@@ -323,6 +323,41 @@ function ComputerThumb() {
   );
 }
 
+function CoinThumb() {
+  const P = (u: number, v: number, z: number) =>
+    [0.866 * (u - v), 0.5 * (u + v) - z] as const;
+  const ring = (cx: number, cy: number, r: number, z: number) => {
+    const pts = Array.from({ length: 20 }, (_, i) => {
+      const a = (i / 20) * Math.PI * 2;
+      return P(cx + Math.cos(a) * r, cy + Math.sin(a) * r, z);
+    });
+    return `M ${pts.map((q) => `${q[0].toFixed(1)} ${q[1].toFixed(1)}`).join(" L ")} Z`;
+  };
+  const stacks = [
+    { u: -16, v: -12, n: 4 },
+    { u: 18, v: 4, n: 3 },
+    { u: -10, v: 18, n: 2 },
+  ];
+  return (
+    <svg viewBox="-42 -48 88 90" className="h-full w-full text-foreground/70">
+      {[...stacks]
+        .sort((a, b) => a.u + a.v - (b.u + b.v))
+        .flatMap((s) =>
+          Array.from({ length: s.n }, (_, i) => ({ ...s, i })),
+        )
+        .map((s, k) => (
+          <path
+            key={k}
+            d={ring(s.u, s.v, 11, s.i * 5)}
+            fill="var(--background)"
+            stroke="currentColor"
+            strokeWidth={1.15}
+          />
+        ))}
+    </svg>
+  );
+}
+
 const ITEMS: Item[] = [
   {
     id: "plate-array",
@@ -376,6 +411,15 @@ const ITEMS: Item[] = [
       "CRT, case, keyboard and mouse — hover a piece to lift it off the desk.",
     status: "live",
     thumb: <ComputerThumb />,
+  },
+  {
+    id: "coin-stacks",
+    index: "07",
+    title: "Coin stacks",
+    blurb:
+      "Rimmed discs marked with a V — hover a pile to separate the coins, or float them in the air.",
+    status: "live",
+    thumb: <CoinThumb />,
   },
 ];
 
