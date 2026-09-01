@@ -3,6 +3,7 @@ import type { RippleConfig } from "@/components/RippleRings";
 import type { BurrConfig } from "@/components/BurrPuzzle";
 import type { ComputerConfig } from "@/components/RetroComputer";
 import type { CoinConfig } from "@/components/CoinStacks";
+import type { TrophyConfig } from "@/components/Trophy";
 import { repoviveLogoGeometryScript } from "@/lib/repovive-logo-iso";
 
 export type IsoMode = "flat" | "ridge" | "wave" | "fan";
@@ -301,6 +302,243 @@ export function buildCubeInteractiveHtml(cfg: CubeConfig) {
         addDots(g, center[0], center[1], idx);
         root.appendChild(g);
       });
+    }
+
+    function tick() {
+      var changed = false;
+      CUBES.forEach(function (c) {
+        var target = hover === c.id ? CFG.jump : 0;
+        var cur = lift[c.id] || 0;
+        var val = cur + (target - cur) * 0.16;
+        if (Math.abs(val - cur) > 0.01 || cur !== target) {
+          lift[c.id] = Math.abs(val - target) < 0.01 ? target : val;
+          changed = true;
+        }
+      });
+      if (changed) render();
+      requestAnimationFrame(tick);
+    }
+
+    svg.addEventListener("pointerleave", function () { hover = null; });
+    render();
+    requestAnimationFrame(tick);
+  })();
+  </script>
+</body>
+</html>
+`;
+}
+
+export type Cube2Config = CubeConfig & {
+  count: number;
+  heights: number[];
+  showDots: boolean;
+};
+
+export function cube2ConfigToJson(cfg: Cube2Config) {
+  return JSON.stringify({ diagram: "cube-cluster-2", ...cfg }, null, 2);
+}
+
+export function buildCube2InteractiveHtml(
+  cfg: Cube2Config,
+  cubes: { id: string; u: number; v: number; h: number }[],
+) {
+  const theme = readTheme();
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Isometric Cube Cluster 2</title>
+  <style>
+    :root { color-scheme: dark light; }
+    html,body { margin:0; height:100%; background:${theme.bg}; color:${theme.fg}; }
+    body { display:grid; place-items:center; }
+    svg { width:min(100%, 640px); height:min(100vh, 520px); touch-action:none; user-select:none; }
+    @keyframes cube2-dot { 0%,100% { opacity:.12 } 50% { opacity:.95 } }
+  </style>
+</head>
+<body>
+  <svg id="cluster2" viewBox="-220 -290 440 520"><g id="root"></g></svg>
+  <script>
+  (function () {
+    var CFG = ${JSON.stringify(cfg)};
+    var CUBES = ${JSON.stringify(cubes)};
+    var T = ${JSON.stringify(theme)};
+    var NS = "http://www.w3.org/2000/svg";
+
+    var svg = document.getElementById("cluster2"), root = document.getElementById("root");
+    var hover = null;
+    var lift = {};
+    CUBES.forEach(function (c) { lift[c.id] = 0; });
+
+    function iso(u, v, z) { return [0.866 * (u - v), 0.5 * (u + v) - z]; }
+
+    function roundPoly(pts, r) {
+      var n = pts.length, d = "";
+      for (var i = 0; i < n; i++) {
+        var prev = pts[(i - 1 + n) % n], cur = pts[i], next = pts[(i + 1) % n];
+        var v1 = [prev[0] - cur[0], prev[1] - cur[1]], v2 = [next[0] - cur[0], next[1] - cur[1]];
+        var l1 = Math.hypot(v1[0], v1[1]) || 1, l2 = Math.hypot(v2[0], v2[1]) || 1;
+        var rr = Math.min(r, l1 / 2, l2 / 2);
+        var p1 = [cur[0] + (v1[0] / l1) * rr, cur[1] + (v1[1] / l1) * rr];
+        var p2 = [cur[0] + (v2[0] / l2) * rr, cur[1] + (v2[1] / l2) * rr];
+        d += (i === 0 ? "M " : " L ") + p1[0].toFixed(2) + " " + p1[1].toFixed(2);
+        d += " Q " + cur[0].toFixed(2) + " " + cur[1].toFixed(2) + " " + p2[0].toFixed(2) + " " + p2[1].toFixed(2);
+      }
+      return d + " Z";
+    }
+
+    function addDots(g, cx, cy, seed) {
+      if (CFG.showDots === false) return;
+      var n = CFG.dotCount, mid = (n - 1) / 2;
+      for (var i = 0; i < n; i++) {
+        for (var j = 0; j < n; j++) {
+          var p = iso((i - mid) * CFG.dotSpacing, (j - mid) * CFG.dotSpacing, 0);
+          var dot = document.createElementNS(NS, "circle");
+          dot.setAttribute("cx", String(cx + p[0]));
+          dot.setAttribute("cy", String(cy + p[1]));
+          dot.setAttribute("r", String(CFG.dotSize));
+          dot.setAttribute("fill", T.fg);
+          dot.style.animation = "cube2-dot " + CFG.pulse + "s ease-in-out " + (((i * n + j + seed * 3) % 12) * 0.16) + "s infinite";
+          g.appendChild(dot);
+        }
+      }
+    }
+
+    function addMedal() {
+      var S = CFG.size;
+      var tallest = CUBES[0];
+      CUBES.forEach(function (c) {
+        var h = c.h + (lift[c.id] || 0);
+        var bh = tallest.h + (lift[tallest.id] || 0);
+        if (h > bh) tallest = c;
+      });
+      var r = Math.max(14, S * 0.28);
+      var medalZ = tallest.h + (lift[tallest.id] || 0) + r * 2.2 + 12;
+      var at = iso((tallest.u + 0.5) * S, (tallest.v + 0.5) * S, medalZ);
+      var sw = Math.max(1.15, CFG.innerStroke * 1.55);
+
+      function ribbon(side) {
+        var pts = [
+          [side * r * 0.04, -r * 0.92],
+          [side * r * 1.32, r * 0.06],
+          [side * r * 1.4, r * 1.82],
+          [side * r * 0.94, r * 1.36],
+          [side * r * 0.48, r * 1.82],
+          [side * r * 0.18, r * 0.18]
+        ];
+        return "M " + pts.map(function (p) { return p[0].toFixed(2) + " " + p[1].toFixed(2); }).join(" L ") + " Z";
+      }
+
+      var g = document.createElementNS(NS, "g");
+      g.setAttribute("transform", "translate(" + at[0].toFixed(2) + " " + at[1].toFixed(2) + ")");
+      g.setAttribute("fill", "none");
+      g.setAttribute("stroke", T.fg);
+      g.setAttribute("stroke-width", String(sw));
+      g.setAttribute("stroke-linejoin", "round");
+      g.setAttribute("stroke-linecap", "round");
+      g.setAttribute("pointer-events", "none");
+
+      function occ(d) {
+        var p = document.createElementNS(NS, "path");
+        p.setAttribute("d", d);
+        p.setAttribute("fill", T.bg);
+        p.setAttribute("stroke", "none");
+        g.appendChild(p);
+      }
+      function outline(d) {
+        var p = document.createElementNS(NS, "path");
+        p.setAttribute("d", d);
+        g.appendChild(p);
+      }
+
+      occ(ribbon(-1)); occ(ribbon(1));
+      outline(ribbon(-1)); outline(ribbon(1));
+
+      var discFill = document.createElementNS(NS, "circle");
+      discFill.setAttribute("cx", "0");
+      discFill.setAttribute("cy", "0");
+      discFill.setAttribute("r", String(r));
+      discFill.setAttribute("fill", T.bg);
+      discFill.setAttribute("stroke", "none");
+      g.appendChild(discFill);
+
+      var disc = document.createElementNS(NS, "circle");
+      disc.setAttribute("cx", "0");
+      disc.setAttribute("cy", "0");
+      disc.setAttribute("r", String(r));
+      g.appendChild(disc);
+
+      var one = document.createElementNS(NS, "path");
+      one.setAttribute("d", "M " + (-r * 0.22).toFixed(2) + " " + (-r * 0.18).toFixed(2) +
+        " L " + (r * 0.08).toFixed(2) + " " + (-r * 0.42).toFixed(2) +
+        " L " + (r * 0.08).toFixed(2) + " " + (r * 0.34).toFixed(2));
+      g.appendChild(one);
+
+      var base = document.createElementNS(NS, "path");
+      base.setAttribute("d", "M " + (-r * 0.22).toFixed(2) + " " + (r * 0.34).toFixed(2) +
+        " L " + (r * 0.28).toFixed(2) + " " + (r * 0.34).toFixed(2));
+      g.appendChild(base);
+
+      root.appendChild(g);
+    }
+
+    function render() {
+      root.textContent = "";
+      var S = CFG.size;
+      var ordered = CUBES.slice().sort(function (a, b) { return a.u + a.v - (b.u + b.v); });
+      ordered.forEach(function (c, idx) {
+        var z = lift[c.id] || 0;
+        var u0 = c.u * S, v0 = c.v * S, top = c.h + z;
+        var tA = iso(u0, v0, top), tB = iso(u0 + S, v0, top);
+        var tC = iso(u0 + S, v0 + S, top), tD = iso(u0, v0 + S, top);
+        var bB = iso(u0 + S, v0, z), bC = iso(u0 + S, v0 + S, z), bD = iso(u0, v0 + S, z);
+        var silhouette = [tA, tB, bB, bC, bD, tD];
+        var center = iso(u0 + S / 2, v0 + S / 2, top);
+
+        var g = document.createElementNS(NS, "g");
+        g.style.cursor = "pointer";
+        g.addEventListener("pointerenter", function () { hover = c.id; });
+        g.addEventListener("pointerleave", function () { if (hover === c.id) hover = null; });
+
+        var fill = document.createElementNS(NS, "path");
+        fill.setAttribute("d", roundPoly(silhouette, CFG.radius));
+        fill.setAttribute("fill", T.bg);
+        fill.setAttribute("stroke", "none");
+        g.appendChild(fill);
+
+        var innerTop = document.createElementNS(NS, "path");
+        innerTop.setAttribute("d", roundPoly([tA, tB, tC, tD], CFG.radius));
+        innerTop.setAttribute("fill", "none");
+        innerTop.setAttribute("stroke", T.fg);
+        innerTop.setAttribute("stroke-opacity", "0.45");
+        innerTop.setAttribute("stroke-width", String(CFG.innerStroke));
+        innerTop.setAttribute("stroke-linejoin", "round");
+        g.appendChild(innerTop);
+
+        var edge = document.createElementNS(NS, "path");
+        edge.setAttribute("d", "M " + tC[0].toFixed(2) + " " + tC[1].toFixed(2) + " L " + bC[0].toFixed(2) + " " + bC[1].toFixed(2));
+        edge.setAttribute("fill", "none");
+        edge.setAttribute("stroke", T.fg);
+        edge.setAttribute("stroke-opacity", "0.45");
+        edge.setAttribute("stroke-width", String(CFG.innerStroke));
+        g.appendChild(edge);
+
+        var outer = document.createElementNS(NS, "path");
+        outer.setAttribute("d", roundPoly(silhouette, CFG.radius));
+        outer.setAttribute("fill", "none");
+        outer.setAttribute("stroke", T.fg);
+        outer.setAttribute("stroke-opacity", hover === c.id ? "0.95" : "0.7");
+        outer.setAttribute("stroke-width", String(CFG.outerStroke));
+        outer.setAttribute("stroke-linejoin", "round");
+        g.appendChild(outer);
+
+        addDots(g, center[0], center[1], idx);
+        root.appendChild(g);
+      });
+      addMedal();
     }
 
     function tick() {
@@ -1162,6 +1400,205 @@ export function buildCoinInteractiveHtml(cfg: CoinConfig) {
         spread[s.id] = (spread[s.id] || 0) + (target - (spread[s.id] || 0)) * 0.14;
       });
       render(t);
+      requestAnimationFrame(tick);
+    }
+    svg.addEventListener("pointerleave", function () { hover = null; });
+    requestAnimationFrame(tick);
+  })();
+  </script>
+</body>
+</html>
+`;
+}
+
+export function trophyConfigToJson(cfg: TrophyConfig) {
+  return JSON.stringify({ diagram: "trophy", ...cfg }, null, 2);
+}
+
+export function buildTrophyInteractiveHtml(cfg: TrophyConfig) {
+  const theme = readTheme();
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Isometric Awards</title>
+  <style>
+    :root { color-scheme: dark light; }
+    html,body { margin:0; height:100%; background:${theme.bg}; color:${theme.fg}; }
+    body { display:grid; place-items:center; }
+    svg { width:min(100%, 720px); height:min(100vh, 560px); touch-action:none; user-select:none; }
+  </style>
+</head>
+<body>
+  <svg id="awards" viewBox="-200 -200 420 400"><g id="root"></g></svg>
+  <script>
+  (function () {
+    var CFG = ${JSON.stringify(cfg)};
+    var T = ${JSON.stringify(theme)};
+    var NS = "http://www.w3.org/2000/svg";
+    var svg = document.getElementById("awards"), root = document.getElementById("root");
+    var PARTS = ["podium","trophy","medal","pencil","sharpener"];
+    var hover = null, lift = {};
+    PARTS.forEach(function (id) { lift[id] = 0; });
+    var A0 = -Math.PI / 4, A1 = 3 * Math.PI / 4;
+    function iso(u, v, z) { return [0.866 * (u - v), 0.5 * (u + v) - z]; }
+    function closePath(pts) { return "M " + pts.map(function (p) { return p[0].toFixed(2) + " " + p[1].toFixed(2); }).join(" L ") + " Z"; }
+    function openPath(pts) { return "M " + pts.map(function (p) { return p[0].toFixed(2) + " " + p[1].toFixed(2); }).join(" L "); }
+    function at(cx, cy, r, z, a) { return iso(cx + Math.cos(a) * r, cy + Math.sin(a) * r, z); }
+    function ell(cx, cy, r, z, n) {
+      n = n || 36; var p = [], i;
+      for (i = 0; i < n; i++) p.push(at(cx, cy, r, z, (i / n) * Math.PI * 2));
+      return p;
+    }
+    function arc(cx, cy, r, z, a0, a1, n) {
+      var p = [], i;
+      for (i = 0; i <= n; i++) p.push(at(cx, cy, r, z, a0 + (a1 - a0) * i / n));
+      return p;
+    }
+    function roundPoly(pts, r) {
+      var n = pts.length, d = "", i;
+      for (i = 0; i < n; i++) {
+        var prev = pts[(i - 1 + n) % n], cur = pts[i], next = pts[(i + 1) % n];
+        var v1 = [prev[0] - cur[0], prev[1] - cur[1]], v2 = [next[0] - cur[0], next[1] - cur[1]];
+        var l1 = Math.hypot(v1[0], v1[1]) || 1, l2 = Math.hypot(v2[0], v2[1]) || 1;
+        var rr = Math.min(r, l1 / 2, l2 / 2);
+        var p1 = [cur[0] + (v1[0] / l1) * rr, cur[1] + (v1[1] / l1) * rr];
+        var p2 = [cur[0] + (v2[0] / l2) * rr, cur[1] + (v2[1] / l2) * rr];
+        d += (i === 0 ? "M " : " L ") + p1[0].toFixed(2) + " " + p1[1].toFixed(2);
+        d += " Q " + cur[0].toFixed(2) + " " + cur[1].toFixed(2) + " " + p2[0].toFixed(2) + " " + p2[1].toFixed(2);
+      }
+      return d + " Z";
+    }
+    function boxFaces(u0, v0, z0, u1, v1, z1) {
+      var tA = iso(u0, v0, z1), tB = iso(u1, v0, z1), tC = iso(u1, v1, z1), tD = iso(u0, v1, z1);
+      var bB = iso(u1, v0, z0), bC = iso(u1, v1, z0), bD = iso(u0, v1, z0);
+      return { silhouette: [tA, tB, bB, bC, bD, tD], top: [tA, tB, tC, tD], right: [tB, tC, bC, bB], front: [tD, tC, bC, bD] };
+    }
+    function cylOut(cx, cy, r, z0, z1) { return closePath(arc(cx, cy, r, z0, A0, A1, 16).concat(arc(cx, cy, r, z1, A1, A0 + Math.PI * 2, 16))); }
+    function cylWall(cx, cy, r, z0, z1) { return closePath(arc(cx, cy, r, z1, A0, A1, 14).concat(arc(cx, cy, r, z0, A1, A0, 14).slice(1))); }
+    function lathePts(rings) {
+      var f = rings[0], l = rings[rings.length - 1];
+      return arc(0, 0, f.r, f.z, A0, A1, 16)
+        .concat(rings.slice(1).map(function (q) { return at(0, 0, q.r, q.z, A1); }))
+        .concat(arc(0, 0, l.r, l.z, A1, A0 + Math.PI * 2, 16))
+        .concat(rings.slice(1).reverse().map(function (q) { return at(0, 0, q.r, q.z, A0); }));
+    }
+    function latheWall(rings) {
+      var f = rings[0], l = rings[rings.length - 1];
+      return closePath(rings.map(function (q) { return at(0, 0, q.r, q.z, A0); })
+        .concat(arc(0, 0, l.r, l.z, A0, A1, 14).slice(1))
+        .concat(rings.slice().reverse().map(function (q) { return at(0, 0, q.r, q.z, A1); }).slice(1))
+        .concat(arc(0, 0, f.r, f.z, A1, A0, 14).slice(1)));
+    }
+    function hull(pts) {
+      if (pts.length < 3) return pts;
+      var s = pts.slice().sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; });
+      function cr(o, a, b) { return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]); }
+      var lo = [], up = [], i, p;
+      for (i = 0; i < s.length; i++) { p = s[i]; while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }
+      for (i = s.length - 1; i >= 0; i--) { p = s[i]; while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], p) <= 0) up.pop(); up.push(p); }
+      lo.pop(); up.pop(); return lo.concat(up);
+    }
+    function star(cx, cy, r, z) {
+      var p = [], i;
+      for (i = 0; i < 10; i++) {
+        var a = -Math.PI / 2 + i * Math.PI / 5, rad = i % 2 === 0 ? r : r * 0.38;
+        p.push(iso(cx + Math.cos(a) * rad, cy + Math.sin(a) * rad, z));
+      }
+      return p;
+    }
+    function discUZ(u, v, z, r) {
+      var p = [], i;
+      for (i = 0; i < 22; i++) { var a = (i / 22) * Math.PI * 2; p.push(iso(u + Math.cos(a) * r, v, z + Math.sin(a) * r)); }
+      return p;
+    }
+    function path(d, fill, fo, stroke, so, sw, cap) {
+      var p = document.createElementNS(NS, "path");
+      p.setAttribute("d", d); p.setAttribute("fill", fill);
+      if (fo != null) p.setAttribute("fill-opacity", String(fo));
+      p.setAttribute("stroke", stroke);
+      if (so != null) p.setAttribute("stroke-opacity", String(so));
+      if (sw != null) p.setAttribute("stroke-width", String(sw));
+      p.setAttribute("stroke-linejoin", "round");
+      if (cap) p.setAttribute("stroke-linecap", "round");
+      return p;
+    }
+    function group(id) {
+      var g = document.createElementNS(NS, "g");
+      g.style.cursor = "pointer";
+      g.addEventListener("pointerenter", function () { hover = id; });
+      return g;
+    }
+    function addBox(g, faces) {
+      var rad = CFG.radius;
+      g.appendChild(path(roundPoly(faces.silhouette, rad), T.bg, null, "none", null, null));
+      g.appendChild(path(roundPoly(faces.silhouette, rad), "none", null, T.fg, 0.55, CFG.innerStroke));
+      g.appendChild(path(roundPoly(faces.right, rad), "none", null, T.fg, 0.55, CFG.innerStroke));
+      g.appendChild(path(roundPoly(faces.front, rad), "none", null, T.fg, 0.55, CFG.innerStroke));
+      g.appendChild(path(roundPoly(faces.top, rad), "none", null, T.fg, 0.55, CFG.innerStroke));
+    }
+    function render() {
+      root.textContent = "";
+      var s = CFG.trophyScale, ms = CFG.medalScale, stepW = 26, stepD = 32, sideH = 13, midH = CFG.podiumH;
+      var zp = lift.podium || 0, zt = lift.trophy || 0, zm = lift.medal || 0, zpen = lift.pencil || 0, zsh = lift.sharpener || 0;
+      var left = boxFaces(-stepW * 1.55, -stepD / 2, zp, -stepW * 0.5, stepD / 2, zp + sideH);
+      var mid = boxFaces(-stepW * 0.5, -stepD / 2, zp, stepW * 0.5, stepD / 2, zp + midH);
+      var right = boxFaces(stepW * 0.5, -stepD / 2, zp, stepW * 1.55, stepD / 2, zp + sideH);
+      var tz = zp + midH + zt;
+      var rings = [
+        { r: 9.4 * s, z: tz + 0.8 }, { r: 9.4 * s, z: tz + 5 }, { r: 4.8 * s, z: tz + 7 },
+        { r: 3.1 * s, z: tz + 16.5 }, { r: 5.6 * s, z: tz + 19.5 }, { r: 15.8 * s, z: tz + 33.5 }
+      ];
+      var rim = rings[5];
+      var mu = 58, mv = -10, mz1 = 38 + zm, mz0 = mz1 - 5.2 * ms, mr = 11.5 * ms, rw = 5.2 * ms;
+      var ribbon = [iso(mu - rw, mv, mz1 + 22 * ms), iso(mu + rw, mv, mz1 + 22 * ms), iso(mu + rw, mv, mz1 + 2), iso(mu, mv, mz0 + 1.2), iso(mu - rw, mv, mz1 + 2)];
+      var pr = 3.3, pu = -8, pv0 = stepD / 2 + 12, pv1 = pv0 + 46, pz = zpen + pr;
+      var back = discUZ(pu, pv0, pz, pr), front = discUZ(pu, pv1, pz, pr);
+      var tip = iso(pu, pv1 + 11, pz);
+      var su = 18, sv = stepD / 2 + 40, sr = 8.4, sz0 = zsh, sz1 = zsh + 7.2;
+      var vf = stepD / 2, zc = zp + midH * 0.48, badge = [], i;
+      for (i = 0; i < 22; i++) { var aa = (i / 22) * Math.PI * 2; badge.push(iso(Math.cos(aa) * 6.2, vf, zc + Math.sin(aa) * 6.2)); }
+      var wrap = document.createElementNS(NS, "g");
+      wrap.setAttribute("transform", "translate(6 " + ((CFG.podiumH + 50 * CFG.trophyScale) * 0.16).toFixed(2) + ")");
+      var gMed = group("medal");
+      gMed.appendChild(path(closePath(ribbon), T.bg, null, "none", null, null));
+      gMed.appendChild(path(closePath(ribbon), T.c, CFG.fill, T.fg, 0.55, CFG.innerStroke));
+      gMed.appendChild(path(cylOut(mu, mv, mr, mz0, mz1), T.bg, null, "none", null, null));
+      gMed.appendChild(path(cylWall(mu, mv, mr, mz0, mz1), T.a, CFG.fill, "none", null, null));
+      gMed.appendChild(path(closePath(ell(mu, mv, mr, mz1)), T.c, CFG.fill, "none", null, null));
+      gMed.appendChild(path(closePath(star(mu, mv, mr * 0.58, mz1 + 0.15)), T.fg, 0.94, "none", null, null));
+      gMed.appendChild(path(cylOut(mu, mv, mr, mz0, mz1), "none", null, T.fg, hover === "medal" ? 0.8 : 0.55, CFG.innerStroke));
+      wrap.appendChild(gMed);
+      var gPod = group("podium");
+      addBox(gPod, left); addBox(gPod, right); addBox(gPod, mid);
+      gPod.appendChild(path(closePath(badge), "none", null, T.fg, 0.72, CFG.innerStroke));
+      gPod.appendChild(path(openPath([iso(-2.4, vf, zc + 2.6), iso(0.55, vf, zc + 4), iso(0.55, vf, zc - 3.8)]), "none", null, T.fg, 0.9, CFG.innerStroke * 1.55, true));
+      gPod.appendChild(path(openPath([iso(-2.3, vf, zc - 3.8), iso(2.6, vf, zc - 3.8)]), "none", null, T.fg, 0.9, CFG.innerStroke * 1.55, true));
+      wrap.appendChild(gPod);
+      var gCup = group("trophy");
+      gCup.appendChild(path(closePath(lathePts(rings)), T.bg, null, "none", null, null));
+      gCup.appendChild(path(closePath(lathePts(rings)), "none", null, T.fg, hover === "trophy" ? 0.8 : 0.55, CFG.innerStroke));
+      wrap.appendChild(gCup);
+      var gPen = group("pencil");
+      gPen.appendChild(path(closePath(hull(back.concat(front, [tip]))), T.bg, null, T.fg, hover === "pencil" ? 0.8 : 0.55, CFG.innerStroke));
+      gPen.appendChild(path(closePath([iso(pu, pv1, pz + pr * 0.2), tip, iso(pu + pr, pv1, pz), iso(pu, pv1, pz - pr)]), T.fg, 0.94, "none", null, null));
+      wrap.appendChild(gPen);
+      var gSh = group("sharpener");
+      gSh.appendChild(path(cylOut(su, sv, sr, sz0, sz1), T.bg, null, T.fg, hover === "sharpener" ? 0.8 : 0.55, CFG.innerStroke));
+      gSh.appendChild(path(cylWall(su, sv, sr, sz0, sz1), T.a, CFG.fill, "none", null, null));
+      gSh.appendChild(path(closePath(ell(su, sv, sr, sz1)), T.c, CFG.fill, "none", null, null));
+      wrap.appendChild(gSh);
+      root.appendChild(wrap);
+    }
+    function tick() {
+      var now = Date.now();
+      PARTS.forEach(function (id) {
+        var extra = id === "medal" ? 2.4 * Math.sin(now / 1700) : id === "trophy" ? 1.1 * Math.sin(now / 2300) : 0;
+        var target = (hover === id ? CFG.lift : 0) + extra;
+        lift[id] = (lift[id] || 0) + (target - (lift[id] || 0)) * 0.14;
+      });
+      render();
       requestAnimationFrame(tick);
     }
     svg.addEventListener("pointerleave", function () { hover = null; });

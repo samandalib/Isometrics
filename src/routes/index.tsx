@@ -3,20 +3,24 @@ import { createFileRoute } from "@tanstack/react-router";
 import { IsoStack } from "@/components/IsoStack";
 import { DiagramGallery } from "@/components/DiagramGallery";
 import { CubeCluster } from "@/components/CubeCluster";
+import { CubeCluster2 } from "@/components/CubeCluster2";
 import { StackedTower } from "@/components/StackedTower";
 import { RippleRings } from "@/components/RippleRings";
 import { BurrPuzzle } from "@/components/BurrPuzzle";
 import { RetroComputer } from "@/components/RetroComputer";
 import { CoinStacks } from "@/components/CoinStacks";
+import { Trophy } from "@/components/Trophy";
 
 const DIAGRAMS: Record<string, React.ComponentType> = {
   "plate-array": IsoStack,
   "cube-cluster": CubeCluster,
+  "cube-cluster-2": CubeCluster2,
   "stacked-tower": StackedTower,
   "ripple-rings": RippleRings,
   "burr-puzzle": BurrPuzzle,
   "retro-computer": RetroComputer,
   "coin-stacks": CoinStacks,
+  trophy: Trophy,
 };
 
 export const Route = createFileRoute("/")({
@@ -45,7 +49,7 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const [selected, setSelected] = useState("plate-array");
+  const [selected, setSelected] = useState("cube-cluster-2");
   const Diagram = DIAGRAMS[selected] ?? IsoStack;
 
   return (

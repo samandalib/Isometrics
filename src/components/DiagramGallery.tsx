@@ -323,6 +323,35 @@ function ComputerThumb() {
   );
 }
 
+function TrophyThumb() {
+  const P = (u: number, v: number, z: number) =>
+    [0.866 * (u - v), 0.5 * (u + v) - z] as const;
+  const box = (u0: number, v0: number, z0: number, u1: number, v1: number, z1: number) => {
+    const pts = [P(u0, v0, z1), P(u1, v0, z1), P(u1, v0, z0), P(u1, v1, z0), P(u0, v1, z0), P(u0, v1, z1)];
+    return `M ${pts.map((q) => `${q[0].toFixed(1)} ${q[1].toFixed(1)}`).join(" L ")} Z`;
+  };
+  const ring = (u: number, v: number, r: number, z: number) => {
+    const pts = Array.from({ length: 14 }, (_, i) => {
+      const a = (i / 14) * Math.PI * 2;
+      return P(u + Math.cos(a) * r, v + Math.sin(a) * r, z);
+    });
+    return `M ${pts.map((q) => `${q[0].toFixed(1)} ${q[1].toFixed(1)}`).join(" L ")} Z`;
+  };
+  return (
+    <svg viewBox="-48 -50 100 96" className="h-full w-full text-foreground/70">
+      <g fill="none" stroke="currentColor" strokeLinejoin="round">
+        <path d={box(-20, -10, 0, -6, 10, 7)} className="fill-background" strokeWidth={1.2} />
+        <path d={box(6, -10, 0, 20, 10, 7)} className="fill-background" strokeWidth={1.2} />
+        <path d={box(-6, -10, 0, 6, 10, 16)} className="fill-background" strokeWidth={1.25} />
+        <path d={ring(0, 0, 3.2, 22)} className="fill-background" strokeWidth={1.05} />
+        <path d={ring(0, 0, 8.5, 32)} className="fill-background" strokeWidth={1.25} />
+        <path d={ring(24, -8, 6, 20)} className="fill-background" strokeWidth={1.15} />
+        <path d={`M ${P(-6, 22, 3).join(" ")} L ${P(-6, 40, 3).join(" ")} L ${P(2, 48, 2).join(" ")}`} strokeWidth={1.1} strokeLinecap="round" />
+      </g>
+    </svg>
+  );
+}
+
 function CoinThumb() {
   const P = (u: number, v: number, z: number) =>
     [0.866 * (u - v), 0.5 * (u + v) - z] as const;
@@ -420,6 +449,24 @@ const ITEMS: Item[] = [
       "Rimmed discs marked with a V — hover a pile to separate the coins, or float them in the air.",
     status: "live",
     thumb: <CoinThumb />,
+  },
+  {
+    id: "trophy",
+    index: "08",
+    title: "Awards",
+    blurb:
+      "Podium, cup, medal and pencil — hover a piece to lift it off the stand.",
+    status: "live",
+    thumb: <TrophyThumb />,
+  },
+  {
+    id: "cube-cluster-2",
+    index: "09",
+    title: "Cube cluster 2",
+    blurb:
+      "Working copy of the cube cluster — set how many blocks there are and how tall each one is.",
+    status: "live",
+    thumb: <CubeThumb />,
   },
 ];
 
